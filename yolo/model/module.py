@@ -480,3 +480,46 @@ class ImplicitM(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.implicit * x
+
+class EarlyExitForHead(nn.Module):
+    """
+    Match the input with the input of HEAD.
+    """
+
+    def __init__(self, channel: int):
+        super().__init__()
+        self.channel = channel
+        self.conv1 = Conv(channel, 256, 1)
+        self.conv2 = Conv(channel, 512, 1)
+        self.conv3 = Conv(channel, 1024, 1)
+
+        self.pool1 = nn.AdaptiveAvgPool2d(80)
+        self.pool2 = nn.AdaptiveAvgPool2d(40)
+        self.pool3 = nn.AdaptiveAvgPool2d(20)
+
+        self.size_list = [80, 40, 20]
+        self.pool_list = [self.pool1, self.pool2, self.pool3]
+
+        self.up_sampler = UpSample(scale_factor=2)
+
+    def forward(self, x: Tensor) -> Tuple[Tensor]:
+        h = x.size()[-1]
+
+        # Match channel
+        x1 = self.conv1(x)
+        x2 = self.conv2(x)
+        x3 = self.conv3(x)
+
+        # Match size
+        x_list = [x1, x2, x3]
+        for i in range(3):
+            # Upsample
+            if h < self.size_list[i]:
+                times = self.size_list[i] // h -1
+                for _ in range(times):
+                    x_list[i] = self.up_sampler(x_list[i])
+            # Downsample
+            elif h > self.size_list[i]:
+                x_list[i] = self.pool_list[i](x_list[i])
+
+        return x1, x2, x3
