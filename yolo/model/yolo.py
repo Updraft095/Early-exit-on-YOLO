@@ -24,26 +24,45 @@ class YOLO(nn.Module):
     def __init__(self, model_cfg: ModelConfig, class_num: int = 80):
         super(YOLO, self).__init__()
         self.num_classes = class_num
+        
+        # Gets the mapping of nn.Module subclass names to class objects built in the yolo/model/module.py file.
         self.layer_map = get_layer_map()  # Get the map Dict[str: Module]
+        
+        # Initialises a list to record how the hierarchy of YOLOLayer is constructed.
         self.model: List[YOLOLayer] = nn.ModuleList()
+        
+        #  Gets the reg_max property from model_cfg.anchor, defaults to 16 if not present.
         self.reg_max = getattr(model_cfg.anchor, "reg_max", 16)
+        
+        # Call the build_model() function to build the layer structure of the model based on the configuration file.
         self.build_model(model_cfg.model)
 
+
+    
     def build_model(self, model_arch: Dict[str, List[Dict[str, Dict[str, Dict]]]]):
+        # Initialising variables
         self.layer_index = {}
         output_dim, layer_idx = [3], 1
+
+        # Record model construction logs
         logger.info(f"🚜 Building YOLO")
+
+        # Build the model according to model_arch
         for arch_name in model_arch:
             if model_arch[arch_name]:
                 logger.info(f"  🏗️  Building {arch_name}")
+            
+            # layer_idx is the layer index. layer_spec contains the type of layer and specific configuration information.
             for layer_idx, layer_spec in enumerate(model_arch[arch_name], start=layer_idx):
                 layer_type, layer_info = next(iter(layer_spec.items()))
+                
+                #  layer_args contains information about the parameters of the layer.
                 layer_args = layer_info.get("args", {})
 
-                # Get input source
+                # Get input layer index
                 source = self.get_source_idx(layer_info.get("source", -1), layer_idx)
 
-                # Find in channels
+                # Find input channels' name and record it.
                 if any(module in layer_type for module in ["Conv", "ELAN", "ADown", "AConv", "CBLinear"]):
                     layer_args["in_channels"] = output_dim[source]
                 if "Detection" in layer_type or "Segmentation" in layer_type:
@@ -51,10 +70,11 @@ class YOLO(nn.Module):
                     layer_args["num_classes"] = self.num_classes
                     layer_args["reg_max"] = self.reg_max
 
-                # create layers
+                # create current layer, add it to the model
                 layer = self.create_layer(layer_type, source, layer_info, **layer_args)
                 self.model.append(layer)
 
+                # If the layer has tags, record them in self.layer_index so that the layer can be accessed later by tags.
                 if layer.tags:
                     if layer.tags in self.layer_index:
                         raise ValueError(f"Duplicate tag '{layer_info['tags']}' found.")
