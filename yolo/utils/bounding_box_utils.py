@@ -282,7 +282,8 @@ class Vec2Box:
         dummy_input = torch.zeros(1, 3, *image_size).to(self.device)
         dummy_output = model(dummy_input)
         strides = []
-        for predict_head in dummy_output["Main"]:
+        # for predict_head in dummy_output["Main"]:
+        for predict_head in dummy_output[0]:
             _, _, *anchor_num = predict_head[2].shape
             strides.append(image_size[1] // anchor_num[1])
         return strides
@@ -320,9 +321,9 @@ class Anc2Box:
             self.strides = self.create_auto_anchor(model, image_size)
 
         self.head_num = len(anchor_cfg.anchor)
-        self.anchor_grids = self.generate_anchors(image_size)
-        self.anchor_scale = tensor(anchor_cfg.anchor, device=device).view(self.head_num, 1, -1, 1, 1, 2)
-        self.anchor_num = self.anchor_scale.size(2)
+        self.anchor_grid = self.generate_anchors(image_size)
+        self.scaler = tensor(anchor_cfg.anchor, device=device).view(self.head_num, 1, -1, 1, 1, 2)
+        self.anchor_num = self.scaler.size(2)
         self.class_num = model.num_classes
 
     def create_auto_anchor(self, model: YOLO, image_size):
@@ -349,13 +350,17 @@ class Anc2Box:
     def __call__(self, predicts: List[Tensor]):
         preds_box, preds_cls, preds_cnf = [], [], []
         for layer_idx, predict in enumerate(predicts):
+            # print(self.anchor_num)
             predict = rearrange(predict, "B (L C) h w -> B L h w C", L=self.anchor_num)
             pred_box, pred_cnf, pred_cls = predict.split((4, 1, self.class_num), dim=-1)
+            # print("pred_box   ", pred_box.size())
+            # print("pred_cnf   ", pred_cnf.size())
+            # print("pred_cls   ", pred_cls.size())
             pred_box = pred_box.sigmoid()
-            pred_box[..., 0:2] = (pred_box[..., 0:2] * 2.0 - 0.5 + self.anchor_grids[layer_idx]) * self.strides[
+            pred_box[..., 0:2] = (pred_box[..., 0:2] * 2.0 - 0.5 + self.anchor_grid[layer_idx]) * self.strides[
                 layer_idx
             ]
-            pred_box[..., 2:4] = (pred_box[..., 2:4] * 2) ** 2 * self.anchor_scale[layer_idx]
+            pred_box[..., 2:4] = (pred_box[..., 2:4] * 2) ** 2 * self.scaler[layer_idx]
             preds_box.append(rearrange(pred_box, "B L h w A -> B (L h w) A"))
             preds_cls.append(rearrange(pred_cls, "B L h w C -> B (L h w) C"))
             preds_cnf.append(rearrange(pred_cnf, "B L h w C -> B (L h w) C"))

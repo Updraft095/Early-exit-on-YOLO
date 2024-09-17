@@ -14,10 +14,13 @@ from yolo.utils.bounding_box_utils import create_converter
 from yolo.utils.deploy_utils import FastModelLoader
 from yolo.utils.logging_utils import ProgressLogger
 from yolo.utils.model_utils import get_device
+from omegaconf import DictConfig, OmegaConf
+from torchinfo import summary
 
 
 @hydra.main(config_path="config", config_name="config", version_base=None)
 def main(cfg: Config):
+    # print(OmegaConf.to_yaml(cfg))
     progress = ProgressLogger(cfg, exp_name=cfg.name)
     device, use_ddp = get_device(cfg.device)
     dataloader = create_dataloader(cfg.task.data, cfg.dataset, cfg.task.task, use_ddp)
@@ -29,6 +32,13 @@ def main(cfg: Config):
 
     converter = create_converter(cfg.model.name, model, cfg.model.anchor, cfg.image_size, device)
 
+    # print("\n#############################################################")
+    # print(cfg.task.data)
+    # print(cfg.dataset)
+    # for i in model.modules():
+    #     print(i)
+    # summary(model)
+    # print("#############################################################\n")
     if cfg.task.task == "train":
         solver = ModelTrainer(cfg, model, converter, progress, device, use_ddp)
     if cfg.task.task == "validation":

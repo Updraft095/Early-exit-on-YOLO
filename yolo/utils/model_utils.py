@@ -130,7 +130,11 @@ class PostProccess:
         self.nms = nms_cfg
 
     def __call__(self, predict, rev_tensor: Optional[Tensor] = None):
-        prediction = self.converter(predict["Main"])
+        # print(predict)
+        if isinstance(predict, dict):
+            prediction = self.converter(predict["Main"])
+        else:
+            prediction = self.converter(predict)
         pred_class, _, pred_bbox = prediction[:3]
         pred_conf = prediction[3] if len(prediction) == 4 else None
         if rev_tensor is not None:
