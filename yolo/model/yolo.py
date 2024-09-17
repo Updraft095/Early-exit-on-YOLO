@@ -5,11 +5,13 @@ from typing import Dict, List, Union
 import torch
 from loguru import logger
 from omegaconf import ListConfig, OmegaConf
-from torch import nn
+from torch import Tensor, nn
+from einops import rearrange
 
 from yolo.config.config import ModelConfig, YOLOLayer
 from yolo.tools.dataset_preparation import prepare_weight
 from yolo.utils.module_utils import get_layer_map
+from yolo.model.module import EarlyExitMultiheadDetection, MultiheadDetection
 
 
 class YOLO(nn.Module):
@@ -24,45 +26,37 @@ class YOLO(nn.Module):
     def __init__(self, model_cfg: ModelConfig, class_num: int = 80):
         super(YOLO, self).__init__()
         self.num_classes = class_num
-        
-        # Gets the mapping of nn.Module subclass names to class objects built in the yolo/model/module.py file.
         self.layer_map = get_layer_map()  # Get the map Dict[str: Module]
-        
-        # Initialises a list to record how the hierarchy of YOLOLayer is constructed.
+
+        # print("\n#############################################################")
+        # print(self.layer_map)
+        # print("#############################################################\n")
+
         self.model: List[YOLOLayer] = nn.ModuleList()
-        
-        #  Gets the reg_max property from model_cfg.anchor, defaults to 16 if not present.
         self.reg_max = getattr(model_cfg.anchor, "reg_max", 16)
-        
-        # Call the build_model() function to build the layer structure of the model based on the configuration file.
         self.build_model(model_cfg.model)
+        self.anchor_num = 3
+        self.confidence = 1 * torch.log2(torch.tensor(class_num))
+        self.softmax = nn.Softmax()
 
-
-    
     def build_model(self, model_arch: Dict[str, List[Dict[str, Dict[str, Dict]]]]):
-        # Initialising variables
         self.layer_index = {}
         output_dim, layer_idx = [3], 1
-
-        # Record model construction logs
         logger.info(f"🚜 Building YOLO")
-
-        # Build the model according to model_arch
+        # print("\n#############################################################")
+        # print(model_arch)
+        # print("#############################################################\n")
         for arch_name in model_arch:
             if model_arch[arch_name]:
                 logger.info(f"  🏗️  Building {arch_name}")
-            
-            # layer_idx is the layer index. layer_spec contains the type of layer and specific configuration information.
             for layer_idx, layer_spec in enumerate(model_arch[arch_name], start=layer_idx):
                 layer_type, layer_info = next(iter(layer_spec.items()))
-                
-                #  layer_args contains information about the parameters of the layer.
                 layer_args = layer_info.get("args", {})
 
-                # Get input layer index
+                # Get input source
                 source = self.get_source_idx(layer_info.get("source", -1), layer_idx)
 
-                # Find input channels' name and record it.
+                # Find in channels
                 if any(module in layer_type for module in ["Conv", "ELAN", "ADown", "AConv", "CBLinear"]):
                     layer_args["in_channels"] = output_dim[source]
                 if "Detection" in layer_type or "Segmentation" in layer_type:
@@ -70,11 +64,10 @@ class YOLO(nn.Module):
                     layer_args["num_classes"] = self.num_classes
                     layer_args["reg_max"] = self.reg_max
 
-                # create current layer, add it to the model
+                # create layers
                 layer = self.create_layer(layer_type, source, layer_info, **layer_args)
                 self.model.append(layer)
 
-                # If the layer has tags, record them in self.layer_index so that the layer can be accessed later by tags.
                 if layer.tags:
                     if layer.tags in self.layer_index:
                         raise ValueError(f"Duplicate tag '{layer_info['tags']}' found.")
@@ -86,20 +79,67 @@ class YOLO(nn.Module):
             layer_idx += 1
 
     def forward(self, x):
-        y = {0: x}
-        output = dict()
-        for index, layer in enumerate(self.model, start=1):
-            if isinstance(layer.source, list):
-                model_input = [y[idx] for idx in layer.source]
-            else:
-                model_input = y[layer.source]
-            x = layer(model_input)
-            y[-1] = x
-            if layer.usable:
-                y[index] = x
-            if layer.output:
-                output[layer.tags] = x
-        return output
+        # print("\n#############################################################")
+        # print(self.training)
+
+        # print("#############################################################\n")
+
+        if self.training:
+            y = {0: x}
+            output = []
+            for index, layer in enumerate(self.model, start=1):
+                if isinstance(layer.source, list):
+                    model_input = [y[idx] for idx in layer.source]
+                else:
+                    model_input = y[layer.source]
+                x = layer(model_input)
+
+                # Get all of the outputs of heads
+                if isinstance(layer, EarlyExitMultiheadDetection) or isinstance(layer, MultiheadDetection):
+                    output.append(x)
+
+                y[-1] = x
+                if layer.usable:
+                    y[index] = x
+                    
+            return output
+        else:
+            y = {0: x}
+            output = dict()
+            for index, layer in enumerate(self.model, start=1):
+                if isinstance(layer.source, list):
+                    model_input = [y[idx] for idx in layer.source]
+                else:
+                    model_input = y[layer.source]
+                x = layer(model_input)
+
+                # Gate of early exit
+                if isinstance(layer, EarlyExitMultiheadDetection):
+                    entropy = self.get_early_exit_entropy(x)
+                    if entropy < self.confidence:
+                        return x
+
+                y[-1] = x
+                if layer.usable:
+                    y[index] = x
+                if layer.output:
+                    output[layer.tags] = x
+            return output
+    
+    def get_early_exit_entropy(self, x: Tensor) -> Tensor:
+        entropy_list = []
+        for _, predict in enumerate(x):
+            # print(self.anchor_num)
+            predict = rearrange(predict, "B (L C) h w -> B L h w C", L=self.anchor_num)
+            _, _, pred_cls = predict.split((4, 1, self.num_classes), dim=-1)
+            pred_cls = rearrange(pred_cls, "B L h w C -> (B L h w) C", L=self.anchor_num)
+            pred_cls = self.softmax(pred_cls)
+            entropy = torch.mean(torch.sum((- pred_cls) * torch.log2(pred_cls), dim=1))
+            entropy_list.append(entropy)
+        entropy = torch.mean(torch.tensor(entropy_list))
+        # print(entropy)
+        return entropy
+
 
     def get_out_channels(self, layer_type: str, layer_args: dict, output_dim: list, source: Union[int, list]):
         if hasattr(layer_args, "out_channels"):
@@ -166,7 +206,10 @@ class YOLO(nn.Module):
             for weight_name in error_set:
                 logger.warning(f"⚠️ Weight {error_name} for key: {'.'.join(weight_name)}")
 
-        self.model.load_state_dict(model_state_dict)
+        self.model.load_state_dict(model_state_dict, strict=False)
+        # for i in model_state_dict.keys():
+        #     print(i)
+        # exit()
 
 
 def create_model(model_cfg: ModelConfig, weight_path: Union[bool, Path] = True, class_num: int = 80) -> YOLO:

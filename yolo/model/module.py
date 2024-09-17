@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Tuple
 
+import math
 import torch
 import torch.nn.functional as F
 from einops import rearrange
@@ -481,45 +482,85 @@ class ImplicitM(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.implicit * x
 
-class EarlyExitForHead(nn.Module):
-    """
-    Match the input with the input of HEAD.
-    """
 
-    def __init__(self, channel: int):
+# class EarlyExitForHead(nn.Module):
+#     """
+#     Match the input with the input of HEAD.
+#     """
+
+#     def __init__(self, channel: int):
+#         super().__init__()
+#         self.channel = channel
+#         self.conv1 = Conv(channel, 256, 1)
+#         self.conv2 = Conv(channel, 512, 1)
+#         self.conv3 = Conv(channel, 1024, 1)
+
+#         self.pool1 = nn.AdaptiveAvgPool2d(80)
+#         self.pool2 = nn.AdaptiveAvgPool2d(40)
+#         self.pool3 = nn.AdaptiveAvgPool2d(20)
+
+#         self.size_list = [80, 40, 20]
+#         self.pool_list = [self.pool1, self.pool2, self.pool3]
+
+#         self.up_sampler = UpSample(scale_factor=2)
+
+#     def forward(self, x: Tensor) -> Tuple[Tensor]:
+#         h = x.size()[-1]
+
+#         # Match channel
+#         x1 = self.conv1(x)
+#         x2 = self.conv2(x)
+#         x3 = self.conv3(x)
+
+#         # Match size
+#         x_list = [x1, x2, x3]
+#         for i in range(3):
+#             # Upsample
+#             if h < self.size_list[i]:
+#                 times = self.size_list[i] // h -1
+#                 for _ in range(times):
+#                     x_list[i] = self.up_sampler(x_list[i])
+#             # Downsample
+#             elif h > self.size_list[i]:
+#                 x_list[i] = self.pool_list[i](x_list[i])
+
+#         return x1, x2, x3
+
+class EarlyExitSampler(nn.Module):
+
+    def __init__(self, in_channels: int, out_channels: int, output_size: int):
         super().__init__()
-        self.channel = channel
-        self.conv1 = Conv(channel, 256, 1)
-        self.conv2 = Conv(channel, 512, 1)
-        self.conv3 = Conv(channel, 1024, 1)
-
-        self.pool1 = nn.AdaptiveAvgPool2d(80)
-        self.pool2 = nn.AdaptiveAvgPool2d(40)
-        self.pool3 = nn.AdaptiveAvgPool2d(20)
-
-        self.size_list = [80, 40, 20]
-        self.pool_list = [self.pool1, self.pool2, self.pool3]
-
+        self.output_size = output_size
+        self.conv = Conv(in_channels, out_channels, 1)
+        self.down_sampler = nn.AdaptiveAvgPool2d(output_size)
         self.up_sampler = UpSample(scale_factor=2)
 
-    def forward(self, x: Tensor) -> Tuple[Tensor]:
-        h = x.size()[-1]
+    def forward(self, x: Tensor) -> Tensor:
+        size = x.size()[-1]
 
-        # Match channel
-        x1 = self.conv1(x)
-        x2 = self.conv2(x)
-        x3 = self.conv3(x)
+        if size < self.output_size:
+            i = math.log2(self.output_size // size)
+            for _ in range(i):
+                x = self.up_sampler(x)
+        elif size > self.output_size:
+            x = self.down_sampler(x)
 
-        # Match size
-        x_list = [x1, x2, x3]
-        for i in range(3):
-            # Upsample
-            if h < self.size_list[i]:
-                times = self.size_list[i] // h -1
-                for _ in range(times):
-                    x_list[i] = self.up_sampler(x_list[i])
-            # Downsample
-            elif h > self.size_list[i]:
-                x_list[i] = self.pool_list[i](x_list[i])
+        x = self.conv(x)
 
-        return x1, x2, x3
+        return x
+
+class EarlyExitMultiheadDetection(nn.Module):
+
+    def __init__(self, in_channels: List[int], num_classes: int, **head_kwargs):
+        super().__init__()
+        DetectionHead = Detection
+
+        if head_kwargs.pop("version", None) == "v7":
+            DetectionHead = IDetection
+
+        self.heads = nn.ModuleList(
+            [DetectionHead((in_channels[0], in_channel), num_classes, **head_kwargs) for in_channel in in_channels]
+        )
+
+    def forward(self, x_list: List[torch.Tensor]) -> List[torch.Tensor]:
+        return [head(x) for x, head in zip(x_list, self.heads)]
