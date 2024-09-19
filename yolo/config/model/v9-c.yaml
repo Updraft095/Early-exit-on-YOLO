@@ -9,10 +9,34 @@ model:
     - Conv:
         args: {out_channels: 64, kernel_size: 3, stride: 2}
         source: 0
+    - EarlyExitSampler:
+        args: {in_channels: 64, out_channels: 256, output_size: 80}
+    - EarlyExitSampler:
+        args: {in_channels: 64, out_channels: 512, output_size: 40}
+        source: -2
+    - EarlyExitSampler:
+        args: {in_channels: 64, out_channels: 1024, output_size: 20}
+        source: -3
+    - EarlyExitMultiheadDetection:
+        output: True
+        source: [-3, -2, -1]
     - Conv:
         args: {out_channels: 128, kernel_size: 3, stride: 2}
+        source: -5
+    - EarlyExitSampler:
+        args: {in_channels: 128, out_channels: 256, output_size: 80}
+    - EarlyExitSampler:
+        args: {in_channels: 128, out_channels: 512, output_size: 40}
+        source: -2
+    - EarlyExitSampler:
+        args: {in_channels: 128, out_channels: 1024, output_size: 20}
+        source: -3
+    - EarlyExitMultiheadDetection:
+        output: True
+        source: [-3, -2, -1]
     - RepNCSPELAN:
         args: {out_channels: 256, part_channels: 128}
+        source: -5
 
     - ADown:
         args: {out_channels: 256}
