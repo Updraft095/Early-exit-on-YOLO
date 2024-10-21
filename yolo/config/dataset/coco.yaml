@@ -1,4 +1,4 @@
-path: data/coco
+path: data2/coco
 train: train2017
 validation: val2017
 
@@ -10,13 +10,13 @@ auto_download:
     base_url: http://images.cocodataset.org/zips/
     train2017:
       file_name: train2017
-      file_num: 118287
+      file_num: 3696
     val2017:
       file_name: val2017
-      file_num: 5000
+      file_num: 156
     test2017:
       file_name: test2017
-      file_num: 40670
+      file_num: 1271
   annotations:
     base_url: http://images.cocodataset.org/annotations/
     annotations:

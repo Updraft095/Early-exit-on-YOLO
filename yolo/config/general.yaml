@@ -1,5 +1,5 @@
 device: 0
-cpu_num: 4
+cpu_num: 16
 
 image_size: [640, 640]
 

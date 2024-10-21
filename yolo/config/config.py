@@ -25,10 +25,18 @@ class BlockConfig:
 
 
 @dataclass
+class EarlyStopConfig:
+    confidence: float
+    dynamic: str
+    specified_layer: Optional[None]
+
+
+@dataclass
 class ModelConfig:
     name: Optional[str]
     anchor: AnchorConfig
     model: Dict[str, BlockConfig]
+    early_exit: EarlyStopConfig
 
 
 @dataclass

@@ -3,10 +3,10 @@ task: train
 defaults:
   - validation: ../validation
 
-epoch: 500
+epoch: 50
 
 data:
-  batch_size: 1
+  batch_size: 8
   image_size: ${image_size}
   cpu_num: ${cpu_num}
   shuffle: True

@@ -2,7 +2,7 @@ hydra:
   run:
     dir: runs
 
-name: v9-dev
+name: v9-c
 
 defaults:
   - _self_

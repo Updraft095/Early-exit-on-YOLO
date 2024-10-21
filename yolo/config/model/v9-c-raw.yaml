@@ -7,84 +7,27 @@ anchor:
 early_exit:
 #   dynamic: entropy
   dynamic: confidence
-  confidence: 0.5
-#   specified_layer: 1
+  confidence: 0.01
+  specified_layer: 1
 
 model:
   backbone:
     - Conv:
         args: {out_channels: 64, kernel_size: 3, stride: 2}
         source: 0
-        tags: C1
-
-    # - EarlyExitSampler:
-    #     args: {in_channels: 64, out_channels: 256, output_size: 80}
-    # - EarlyExitSampler:
-    #     args: {in_channels: 64, out_channels: 512, output_size: 40}
-    #     source: -2
-    # - EarlyExitSampler:
-    #     args: {in_channels: 64, out_channels: 1024, output_size: 20}
-    #     source: -3
-    # - EarlyExitMultiheadDetection:
-    #     output: True
-    #     source: [-3, -2, -1]
-
     - Conv:
         args: {out_channels: 128, kernel_size: 3, stride: 2}
-        source: C1
-        tags: C2
-
-    # - EarlyExitSampler:
-    #     args: {in_channels: 128, out_channels: 256, output_size: 80}
-    # - EarlyExitSampler:
-    #     args: {in_channels: 128, out_channels: 512, output_size: 40}
-    #     source: -2
-    # - EarlyExitSampler:
-    #     args: {in_channels: 128, out_channels: 1024, output_size: 20}
-    #     source: -3
-    # - EarlyExitMultiheadDetection:
-    #     output: True
-    #     source: [-3, -2, -1]
-
     - RepNCSPELAN:
         args: {out_channels: 256, part_channels: 128}
-        source: C2
-        tags: C3
-
-    # - EarlyExitSampler:
-    #     args: {in_channels: 256, out_channels: 256, output_size: 80}
-    # - EarlyExitSampler:
-    #     args: {in_channels: 256, out_channels: 512, output_size: 40}
-    #     source: -2
-    # - EarlyExitSampler:
-    #     args: {in_channels: 256, out_channels: 1024, output_size: 20}
-    #     source: -3
-    # - EarlyExitMultiheadDetection:
-    #     output: True
-    #     source: [-3, -2, -1]
 
     - ADown:
         args: {out_channels: 256}
-        source: C3
     - RepNCSPELAN:
         args: {out_channels: 512, part_channels: 256}
         tags: B3
 
-    # - EarlyExitSampler:
-    #     args: {in_channels: 512, out_channels: 256, output_size: 80}
-    # - EarlyExitSampler:
-    #     args: {in_channels: 512, out_channels: 512, output_size: 40}
-    #     source: -2
-    # - EarlyExitSampler:
-    #     args: {in_channels: 512, out_channels: 1024, output_size: 20}
-    #     source: -3
-    # - EarlyExitMultiheadDetection:
-    #     output: True
-    #     source: [-3, -2, -1]
-
     - ADown:
         args: {out_channels: 512}
-        source: B3
     - RepNCSPELAN:
         args: {out_channels: 512, part_channels: 512}
         tags: B4

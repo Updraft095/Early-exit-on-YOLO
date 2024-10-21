@@ -14,9 +14,11 @@ from yolo.utils.bounding_box_utils import create_converter
 from yolo.utils.deploy_utils import FastModelLoader
 from yolo.utils.logging_utils import ProgressLogger
 from yolo.utils.model_utils import get_device
-from omegaconf import DictConfig, OmegaConf
-from torchinfo import summary
+# from omegaconf import DictConfig, OmegaConf
+# from torchinfo import summary
 
+import warnings
+warnings.filterwarnings('ignore')
 
 @hydra.main(config_path="config", config_name="config", version_base=None)
 def main(cfg: Config):

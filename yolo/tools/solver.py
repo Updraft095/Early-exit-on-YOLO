@@ -73,9 +73,18 @@ class ModelTrainer:
 
         with autocast():
             predicts = self.model(images)
-            aux_predicts = self.vec2box(predicts["AUX"])
-            main_predicts = self.vec2box(predicts["Main"])
-            loss, loss_item = self.loss_fn(aux_predicts, main_predicts, targets)
+            loss, loss_item = 0, {}
+            for pred in predicts:
+                aux_predicts = self.vec2box(pred)
+                main_predicts = self.vec2box(pred)
+                temp_loss, temp_loss_item = self.loss_fn(aux_predicts, main_predicts, targets)
+                loss += temp_loss
+                for key in temp_loss_item.keys():
+                    if key in loss_item:
+                        loss_item[key] += temp_loss_item[key]
+                    else:
+                        loss_item[key] = temp_loss_item[key]
+                
 
         self.scaler.scale(loss).backward()
         self.scaler.unscale_(self.optimizer)
@@ -166,6 +175,9 @@ class ModelTester:
 
     def solve(self, dataloader: StreamDataLoader):
         logger.info("👀 Start Inference!")
+
+        start_time = time.time()
+
         if isinstance(self.model, torch.nn.Module):
             self.model.eval()
 
@@ -180,7 +192,11 @@ class ModelTester:
                 rev_tensor = rev_tensor.to(self.device)
                 with torch.no_grad():
                     predicts = self.model(images)
+                    # print(predicts['Main'][0].size())
+                    # print(predicts['Main'][1].size())
+                    # print(predicts['Main'][2].size())
                     predicts = self.post_proccess(predicts, rev_tensor)
+                    # print(predicts)
                 img = draw_bboxes(origin_frame, predicts, idx2label=self.idx2label)
 
                 if dataloader.is_stream:
@@ -197,6 +213,9 @@ class ModelTester:
                     save_image_path = self.save_path / f"frame{idx:03d}.png"
                     img.save(save_image_path)
                     logger.info(f"💾 Saved visualize image at {save_image_path}")
+
+            total_time = time.time() - start_time
+            print(f"The total inference time is {total_time:.3f}s")
 
         except (KeyboardInterrupt, Exception) as e:
             dataloader.stop_event.set()
@@ -241,6 +260,7 @@ class ModelValidator:
             with torch.no_grad():
                 predicts = self.model(images)
                 predicts = self.post_proccess(predicts)
+                # print(predicts)
                 for idx, predict in enumerate(predicts):
                     mAP = calculate_map(predict, targets[idx])
                     for mAP_key, mAP_val in mAP.items():
