@@ -67,12 +67,12 @@ class ModelTrainer:
             self.ema = None
         self.scaler = GradScaler()
 
-    def train_one_batch(self, images: Tensor, targets: Tensor):
+    def train_one_batch(self, images: Tensor, targets: Tensor, epoch_idx):
         images, targets = images.to(self.device), targets.to(self.device)
         self.optimizer.zero_grad()
 
         with autocast():
-            predicts = self.model(images)
+            predicts = self.model(images, epoch_idx)
             loss, loss_item = 0, {}
             for pred in predicts:
                 aux_predicts = self.vec2box(pred)
@@ -85,23 +85,29 @@ class ModelTrainer:
                     else:
                         loss_item[key] = temp_loss_item[key]
                 
-
-        self.scaler.scale(loss).backward()
+        if epoch_idx >= 25:
+            self.scaler.scale(loss / 6).backward()
+        else:
+            self.scaler.scale(loss).backward()
         self.scaler.unscale_(self.optimizer)
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)
         self.scaler.step(self.optimizer)
         self.scaler.update()
 
+        if epoch_idx >= 25:
+            for key in loss_item.keys():
+                loss_item[key] = loss_item[key] / 5
+
         return loss_item
 
-    def train_one_epoch(self, dataloader):
+    def train_one_epoch(self, dataloader, epoch_idx):
         self.model.train()
         total_loss = defaultdict(lambda: torch.tensor(0.0, device=self.device))
         total_samples = 0
         self.optimizer.next_epoch(len(dataloader))
         for batch_size, images, targets, *_ in dataloader:
             self.optimizer.next_batch()
-            loss_each = self.train_one_batch(images, targets)
+            loss_each = self.train_one_batch(images, targets, epoch_idx)
 
             for loss_name, loss_val in loss_each.items():
                 total_loss[loss_name] += loss_val * batch_size
@@ -150,12 +156,25 @@ class ModelTrainer:
             if self.use_ddp:
                 dataloader.sampler.set_epoch(epoch_idx)
 
+            if epoch_idx == 25:
+                for name, param in self.model.named_parameters():
+                    if not ("model.2." in name or"model.3." in name or "model.4." in name or "model.5." in name \
+                    or "model.9." in name or"model.10." in name or "model.11." in name or "model.12." in name \
+                    or "model.17." in name or"model.18." in name or "model.19." in name or "model.20." in name \
+                    or "model.27." in name or"model.28." in name or "model.29." in name or "model.30." in name \
+                    or "model.34." in name or"model.35." in name or "model.36." in name or "model.37." in name):
+                        param.requires_grad = False
+
+                print("2-stage training! Weights have been frozen!")
+
             self.progress.start_one_epoch(len(dataloader), "Train", self.optimizer, epoch_idx)
-            epoch_loss = self.train_one_epoch(dataloader)
+            epoch_loss = self.train_one_epoch(dataloader, epoch_idx)
             self.progress.finish_one_epoch(epoch_loss, epoch_idx=epoch_idx)
 
             mAPs = self.validator.solve(self.validation_dataloader, epoch_idx=epoch_idx)
             if self.good_epoch(mAPs):
+                self.save_checkpoint(epoch_idx=epoch_idx)
+            elif epoch_idx == 49:
                 self.save_checkpoint(epoch_idx=epoch_idx)
             # TODO: save model if result are better than before
         self.progress.finish_train()
@@ -260,13 +279,13 @@ class ModelValidator:
             with torch.no_grad():
                 predicts = self.model(images)
                 predicts = self.post_proccess(predicts)
-                # print(predicts)
                 for idx, predict in enumerate(predicts):
                     mAP = calculate_map(predict, targets[idx])
                     for mAP_key, mAP_val in mAP.items():
                         mAPs[mAP_key].append(mAP_val)
 
             avg_mAPs = {key: torch.mean(torch.stack(val)) for key, val in mAPs.items()}
+            print(avg_mAPs)
             self.progress.one_batch(avg_mAPs)
 
             predict_json.extend(predicts_to_json(img_paths, predicts, rev_tensor))

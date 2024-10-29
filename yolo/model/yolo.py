@@ -46,10 +46,57 @@ class YOLO(nn.Module):
 
         self.early_exit_layer_num = 0
 
+        for layer in self.model:
+            if isinstance(layer, EarlyExitMultiheadDetection):
+                self.early_exit_layer_num += 1
+        
 
 
     def add_early_exit(self):
-        # E1
+        param1 = {
+            'in_channels':self.model[1].out_c,
+            'out_channels': 256,
+            'output_size': 80
+        }
+        param2 = {
+            'in_channels':self.model[1].out_c,
+            'out_channels': 512,
+            'output_size': 40
+        }
+        param3 = {
+            'in_channels':self.model[1].out_c,
+            'out_channels': 1024,
+            'output_size': 20
+        }
+        param4 = {
+            'in_channels':[256, 512, 1024], 
+            'num_classes': 80
+        }
+        sampler1 = self.create_layer('EarlyExitSampler', 2, {}, **param1)
+        sampler2 = self.create_layer('EarlyExitSampler', 2, {}, **param2)
+        sampler3 = self.create_layer('EarlyExitSampler', 2, {}, **param3)
+        ex = self.create_layer('EarlyExitMultiheadDetection', [3, 4, 5], {'output': True}, **param4)
+        sampler1.usable = True
+        sampler2.usable = True
+        sampler3.usable = True
+        self.model.insert(2, ex)
+        self.model.insert(2, sampler3)
+        self.model.insert(2, sampler2)
+        self.model.insert(2, sampler1)
+
+        for layer in self.model:
+            if layer.layer_type != 'EarlyExitSampler' and layer.layer_type != 'EarlyExitMultiheadDetection':
+                if isinstance(layer.source, list):
+                    new_source = []
+                    for source in layer.source:
+                        if source >= 3:
+                            new_source.append(source + 4)
+                        else:
+                            new_source.append(source)
+                    layer.source = new_source
+                elif layer.source >= 3:
+                    layer.source += 4
+
         param1 = {
             'in_channels':self.model[0].out_c,
             'out_channels': 256,
@@ -95,139 +142,139 @@ class YOLO(nn.Module):
                     layer.source += 4
 
         # E2
-        param1 = {
-            'in_channels':self.model[5].out_c,
-            'out_channels': 256,
-            'output_size': 80
-        }
-        param2 = {
-            'in_channels':self.model[5].out_c,
-            'out_channels': 512,
-            'output_size': 40
-        }
-        param3 = {
-            'in_channels':self.model[5].out_c,
-            'out_channels': 1024,
-            'output_size': 20
-        }
-        param4 = {
-            'in_channels':[256, 512, 1024], 
-            'num_classes': 80
-        }
-        sampler1 = self.create_layer('EarlyExitSampler', 6, {}, **param1)
-        sampler2 = self.create_layer('EarlyExitSampler', 6, {}, **param2)
-        sampler3 = self.create_layer('EarlyExitSampler', 6, {}, **param3)
-        ex = self.create_layer('EarlyExitMultiheadDetection', [7, 8, 9], {'output': True}, **param4)
-        sampler1.usable = True
-        sampler2.usable = True
-        sampler3.usable = True
-        self.model.insert(6, ex)
-        self.model.insert(6, sampler3)
-        self.model.insert(6, sampler2)
-        self.model.insert(6, sampler1)
+        # param1 = {
+        #     'in_channels':self.model[5].out_c,
+        #     'out_channels': 256,
+        #     'output_size': 80
+        # }
+        # param2 = {
+        #     'in_channels':self.model[5].out_c,
+        #     'out_channels': 512,
+        #     'output_size': 40
+        # }
+        # param3 = {
+        #     'in_channels':self.model[5].out_c,
+        #     'out_channels': 1024,
+        #     'output_size': 20
+        # }
+        # param4 = {
+        #     'in_channels':[256, 512, 1024], 
+        #     'num_classes': 80
+        # }
+        # sampler1 = self.create_layer('EarlyExitSampler', 6, {}, **param1)
+        # sampler2 = self.create_layer('EarlyExitSampler', 6, {}, **param2)
+        # sampler3 = self.create_layer('EarlyExitSampler', 6, {}, **param3)
+        # ex = self.create_layer('EarlyExitMultiheadDetection', [7, 8, 9], {'output': True}, **param4)
+        # sampler1.usable = True
+        # sampler2.usable = True
+        # sampler3.usable = True
+        # self.model.insert(6, ex)
+        # self.model.insert(6, sampler3)
+        # self.model.insert(6, sampler2)
+        # self.model.insert(6, sampler1)
 
-        for layer in self.model:
-            if layer.layer_type != 'EarlyExitSampler' and layer.layer_type != 'EarlyExitMultiheadDetection':
-                if isinstance(layer.source, list):
-                    new_source = []
-                    for source in layer.source:
-                        if source >= 7:
-                            new_source.append(source + 4)
-                        else:
-                            new_source.append(source)
-                    layer.source = new_source
-                elif layer.source >= 7:
-                    layer.source += 4
+        # for layer in self.model:
+        #     if layer.layer_type != 'EarlyExitSampler' and layer.layer_type != 'EarlyExitMultiheadDetection':
+        #         if isinstance(layer.source, list):
+        #             new_source = []
+        #             for source in layer.source:
+        #                 if source >= 7:
+        #                     new_source.append(source + 4)
+        #                 else:
+        #                     new_source.append(source)
+        #             layer.source = new_source
+        #         elif layer.source >= 7:
+        #             layer.source += 4
 
         # E3
-        param1 = {
-            'in_channels':self.model[10].out_c,
-            'out_channels': 256,
-            'output_size': 80
-        }
-        param2 = {
-            'in_channels':self.model[10].out_c,
-            'out_channels': 512,
-            'output_size': 40
-        }
-        param3 = {
-            'in_channels':self.model[10].out_c,
-            'out_channels': 1024,
-            'output_size': 20
-        }
-        param4 = {
-            'in_channels':[256, 512, 1024], 
-            'num_classes': 80
-        }
-        sampler1 = self.create_layer('EarlyExitSampler', 11, {}, **param1)
-        sampler2 = self.create_layer('EarlyExitSampler', 11, {}, **param2)
-        sampler3 = self.create_layer('EarlyExitSampler', 11, {}, **param3)
-        ex = self.create_layer('EarlyExitMultiheadDetection', [12, 13, 14], {'output': True}, **param4)
-        sampler1.usable = True
-        sampler2.usable = True
-        sampler3.usable = True
-        self.model.insert(11, ex)
-        self.model.insert(11, sampler3)
-        self.model.insert(11, sampler2)
-        self.model.insert(11, sampler1)
+        # param1 = {
+        #     'in_channels':self.model[10].out_c,
+        #     'out_channels': 256,
+        #     'output_size': 80
+        # }
+        # param2 = {
+        #     'in_channels':self.model[10].out_c,
+        #     'out_channels': 512,
+        #     'output_size': 40
+        # }
+        # param3 = {
+        #     'in_channels':self.model[10].out_c,
+        #     'out_channels': 1024,
+        #     'output_size': 20
+        # }
+        # param4 = {
+        #     'in_channels':[256, 512, 1024], 
+        #     'num_classes': 80
+        # }
+        # sampler1 = self.create_layer('EarlyExitSampler', 11, {}, **param1)
+        # sampler2 = self.create_layer('EarlyExitSampler', 11, {}, **param2)
+        # sampler3 = self.create_layer('EarlyExitSampler', 11, {}, **param3)
+        # ex = self.create_layer('EarlyExitMultiheadDetection', [12, 13, 14], {'output': True}, **param4)
+        # sampler1.usable = True
+        # sampler2.usable = True
+        # sampler3.usable = True
+        # self.model.insert(11, ex)
+        # self.model.insert(11, sampler3)
+        # self.model.insert(11, sampler2)
+        # self.model.insert(11, sampler1)
 
-        for layer in self.model:
-            if layer.layer_type != 'EarlyExitSampler' and layer.layer_type != 'EarlyExitMultiheadDetection':
-                if isinstance(layer.source, list):
-                    new_source = []
-                    for source in layer.source:
-                        if source >= 12:
-                            new_source.append(source + 4)
-                        else:
-                            new_source.append(source)
-                    layer.source = new_source
-                elif layer.source >= 12:
-                    layer.source += 4
+        # for layer in self.model:
+        #     if layer.layer_type != 'EarlyExitSampler' and layer.layer_type != 'EarlyExitMultiheadDetection':
+        #         if isinstance(layer.source, list):
+        #             new_source = []
+        #             for source in layer.source:
+        #                 if source >= 12:
+        #                     new_source.append(source + 4)
+        #                 else:
+        #                     new_source.append(source)
+        #             layer.source = new_source
+        #         elif layer.source >= 12:
+        #             layer.source += 4
 
         # E4
-        param1 = {
-            'in_channels':self.model[16].out_c,
-            'out_channels': 256,
-            'output_size': 80
-        }
-        param2 = {
-            'in_channels':self.model[16].out_c,
-            'out_channels': 512,
-            'output_size': 40
-        }
-        param3 = {
-            'in_channels':self.model[16].out_c,
-            'out_channels': 1024,
-            'output_size': 20
-        }
-        param4 = {
-            'in_channels':[256, 512, 1024], 
-            'num_classes': 80
-        }
-        sampler1 = self.create_layer('EarlyExitSampler', 17, {}, **param1)
-        sampler2 = self.create_layer('EarlyExitSampler', 17, {}, **param2)
-        sampler3 = self.create_layer('EarlyExitSampler', 17, {}, **param3)
-        ex = self.create_layer('EarlyExitMultiheadDetection', [18, 19, 20], {'output': True}, **param4)
-        sampler1.usable = True
-        sampler2.usable = True
-        sampler3.usable = True
-        self.model.insert(17, ex)
-        self.model.insert(17, sampler3)
-        self.model.insert(17, sampler2)
-        self.model.insert(17, sampler1)
+        # param1 = {
+        #     'in_channels':self.model[16].out_c,
+        #     'out_channels': 256,
+        #     'output_size': 80
+        # }
+        # param2 = {
+        #     'in_channels':self.model[16].out_c,
+        #     'out_channels': 512,
+        #     'output_size': 40
+        # }
+        # param3 = {
+        #     'in_channels':self.model[16].out_c,
+        #     'out_channels': 1024,
+        #     'output_size': 20
+        # }
+        # param4 = {
+        #     'in_channels':[256, 512, 1024], 
+        #     'num_classes': 80
+        # }
+        # sampler1 = self.create_layer('EarlyExitSampler', 17, {}, **param1)
+        # sampler2 = self.create_layer('EarlyExitSampler', 17, {}, **param2)
+        # sampler3 = self.create_layer('EarlyExitSampler', 17, {}, **param3)
+        # ex = self.create_layer('EarlyExitMultiheadDetection', [18, 19, 20], {'output': True}, **param4)
+        # sampler1.usable = True
+        # sampler2.usable = True
+        # sampler3.usable = True
+        # self.model.insert(17, ex)
+        # self.model.insert(17, sampler3)
+        # self.model.insert(17, sampler2)
+        # self.model.insert(17, sampler1)
 
-        for layer in self.model:
-            if layer.layer_type != 'EarlyExitSampler' and layer.layer_type != 'EarlyExitMultiheadDetection':
-                if isinstance(layer.source, list):
-                    new_source = []
-                    for source in layer.source:
-                        if source >= 18:
-                            new_source.append(source + 4)
-                        else:
-                            new_source.append(source)
-                    layer.source = new_source
-                elif layer.source >= 18:
-                    layer.source += 4
+        # for layer in self.model:
+        #     if layer.layer_type != 'EarlyExitSampler' and layer.layer_type != 'EarlyExitMultiheadDetection':
+        #         if isinstance(layer.source, list):
+        #             new_source = []
+        #             for source in layer.source:
+        #                 if source >= 18:
+        #                     new_source.append(source + 4)
+        #                 else:
+        #                     new_source.append(source)
+        #             layer.source = new_source
+        #         elif layer.source >= 18:
+        #             layer.source += 4
         
 
 
@@ -261,6 +308,7 @@ class YOLO(nn.Module):
                 # create layers
                 layer = self.create_layer(
                     layer_type, source, layer_info, **layer_args)
+                
                 self.model.append(layer)
 
                 if layer.tags:
@@ -275,32 +323,47 @@ class YOLO(nn.Module):
                 setattr(layer, "out_c", out_channels)
             layer_idx += 1
 
-    def forward(self, x):
+    def forward(self, x, epoch_idx=None):
         # print("\n#############################################################")
         # print(self.training)
 
         # print("#############################################################\n")
 
         if self.training:
+            early_exit_layer_counter = 0
             y = {0: x}
             output = []
             for index, layer in enumerate(self.model, start=1):
+
+                if epoch_idx >= 25 and index > 37:
+                    break
                 
                 if isinstance(layer.source, list):
                     model_input = [y[idx] for idx in layer.source]
                 else:
                     model_input = y[layer.source]
+                if epoch_idx < 25 and (isinstance(layer, EarlyExitMultiheadDetection) or isinstance(layer, EarlyExitSampler)):
+                    y[-1] = None
+                    if layer.usable:
+                        y[index] = None
+                    continue
                 x = layer(model_input)
 
                 # Get all of the outputs of heads
                 if isinstance(layer, EarlyExitMultiheadDetection) or isinstance(layer, MultiheadDetection):
+                    early_exit_layer_counter += 1
                     output.append(x)
+
 
                 y[-1] = x
                 if layer.usable:
                     y[index] = x
 
+                if self.specified_layer:
+                    if early_exit_layer_counter == self.specified_layer:
+                        return output
             return output
+        
         else:
             early_exit_layer_counter = 0
             y = {0: x}
@@ -417,6 +480,7 @@ class YOLO(nn.Module):
         args:
             weights: A OrderedDict containing the new weights.
         """
+        # print(weights)
         if isinstance(weights, Path):
             weights = torch.load(weights, map_location=torch.device("cpu"))
         if "model_state_dict" in weights:
@@ -442,7 +506,9 @@ class YOLO(nn.Module):
                 logger.warning(
                     f"⚠️ Weight {error_name} for key: {'.'.join(weight_name)}")
 
-        print("\n\n+++++++++++++++++++++++++++++++++++++++++++++++\n\n")
+        # print("\n\n+++++++++++++++++++++++++++++++++++++++++++++++\n\n")
+        # print("\n\n+++++++++++++++++++++++++++++++++++++++++++++++\n\n")
+        # print("\n\n+++++++++++++++++++++++++++++++++++++++++++++++\n\n")
         self.model.load_state_dict(model_state_dict)
         # for i in model_state_dict.keys():
         #     print(i)
@@ -488,8 +554,8 @@ def create_model(model_cfg: ModelConfig, weight_path: Union[bool, Path] = True, 
     else:
         logger.info("✅ Success load model")
 
-    frozen_weight(model)
-    add_early_exit(model)
+    # frozen_weight(model)
+    # add_early_exit(model)
     # print(model.model[0:7])
 
     return model

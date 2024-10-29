@@ -8,7 +8,7 @@ early_exit:
 #   dynamic: entropy
   dynamic: confidence
   confidence: 0.5
-#   specified_layer: 1
+  specified_layer: 1
 
 model:
   backbone:
@@ -17,51 +17,27 @@ model:
         source: 0
         tags: C1
 
-    # - EarlyExitSampler:
-    #     args: {in_channels: 64, out_channels: 256, output_size: 80}
-    # - EarlyExitSampler:
-    #     args: {in_channels: 64, out_channels: 512, output_size: 40}
-    #     source: -2
-    # - EarlyExitSampler:
-    #     args: {in_channels: 64, out_channels: 1024, output_size: 20}
-    #     source: -3
-    # - EarlyExitMultiheadDetection:
-    #     output: True
-    #     source: [-3, -2, -1]
-
     - Conv:
         args: {out_channels: 128, kernel_size: 3, stride: 2}
         source: C1
         tags: C2
 
-    # - EarlyExitSampler:
-    #     args: {in_channels: 128, out_channels: 256, output_size: 80}
-    # - EarlyExitSampler:
-    #     args: {in_channels: 128, out_channels: 512, output_size: 40}
-    #     source: -2
-    # - EarlyExitSampler:
-    #     args: {in_channels: 128, out_channels: 1024, output_size: 20}
-    #     source: -3
-    # - EarlyExitMultiheadDetection:
-    #     output: True
-    #     source: [-3, -2, -1]
+    - EarlyExitSampler:
+        args: {in_channels: 128, out_channels: 256, output_size: 80}
+    - EarlyExitSampler:
+        args: {in_channels: 128, out_channels: 512, output_size: 40}
+        source: -2
+    - EarlyExitSampler:
+        args: {in_channels: 128, out_channels: 1024, output_size: 20}
+        source: -3
+    - EarlyExitMultiheadDetection:
+        output: True
+        source: [-3, -2, -1]
 
     - RepNCSPELAN:
         args: {out_channels: 256, part_channels: 128}
         source: C2
         tags: C3
-
-    # - EarlyExitSampler:
-    #     args: {in_channels: 256, out_channels: 256, output_size: 80}
-    # - EarlyExitSampler:
-    #     args: {in_channels: 256, out_channels: 512, output_size: 40}
-    #     source: -2
-    # - EarlyExitSampler:
-    #     args: {in_channels: 256, out_channels: 1024, output_size: 20}
-    #     source: -3
-    # - EarlyExitMultiheadDetection:
-    #     output: True
-    #     source: [-3, -2, -1]
 
     - ADown:
         args: {out_channels: 256}
@@ -70,17 +46,17 @@ model:
         args: {out_channels: 512, part_channels: 256}
         tags: B3
 
-    # - EarlyExitSampler:
-    #     args: {in_channels: 512, out_channels: 256, output_size: 80}
-    # - EarlyExitSampler:
-    #     args: {in_channels: 512, out_channels: 512, output_size: 40}
-    #     source: -2
-    # - EarlyExitSampler:
-    #     args: {in_channels: 512, out_channels: 1024, output_size: 20}
-    #     source: -3
-    # - EarlyExitMultiheadDetection:
-    #     output: True
-    #     source: [-3, -2, -1]
+    - EarlyExitSampler:
+        args: {in_channels: 512, out_channels: 256, output_size: 80}
+    - EarlyExitSampler:
+        args: {in_channels: 512, out_channels: 512, output_size: 40}
+        source: -2
+    - EarlyExitSampler:
+        args: {in_channels: 512, out_channels: 1024, output_size: 20}
+        source: -3
+    - EarlyExitMultiheadDetection:
+        output: True
+        source: [-3, -2, -1]
 
     - ADown:
         args: {out_channels: 512}
@@ -95,15 +71,31 @@ model:
         args: {out_channels: 512, part_channels: 512}
         tags: B5
 
+    - EarlyExitSampler:
+        args: {in_channels: 512, out_channels: 256, output_size: 80}
+    - EarlyExitSampler:
+        args: {in_channels: 512, out_channels: 512, output_size: 40}
+        source: -2
+    - EarlyExitSampler:
+        args: {in_channels: 512, out_channels: 1024, output_size: 20}
+        source: -3
+    - EarlyExitMultiheadDetection:
+        output: True
+        source: [-3, -2, -1]
+
   neck:
     - SPPELAN:
         args: {out_channels: 512}
+        source: B5
         tags: N3
+
+    
 
     - UpSample:
         args: {scale_factor: 2, mode: nearest}
+        tags: U1
     - Concat:
-        source: [-1, B4]
+        source: [U1, B4]
     - RepNCSPELAN:
         args: {out_channels: 512, part_channels: 512}
         tags: N4
@@ -112,19 +104,48 @@ model:
         args: {scale_factor: 2, mode: nearest}
     - Concat:
         source: [-1, B3]
+        tags: C4
+
+    - EarlyExitSampler:
+        args: {in_channels: 1024, out_channels: 256, output_size: 80}
+    - EarlyExitSampler:
+        args: {in_channels: 1024, out_channels: 512, output_size: 40}
+        source: -2
+    - EarlyExitSampler:
+        args: {in_channels: 1024, out_channels: 1024, output_size: 20}
+        source: -3
+    - EarlyExitMultiheadDetection:
+        output: True
+        source: [-3, -2, -1]
 
   head:
     - RepNCSPELAN:
         args: {out_channels: 256, part_channels: 256}
         tags: P3
+        source: C4
 
     - ADown:
         args: {out_channels: 256}
     - Concat:
         source: [-1, N4]
+        tags: C5
+
+    - EarlyExitSampler:
+        args: {in_channels: 768, out_channels: 256, output_size: 80}
+    - EarlyExitSampler:
+        args: {in_channels: 768, out_channels: 512, output_size: 40}
+        source: -2
+    - EarlyExitSampler:
+        args: {in_channels: 768, out_channels: 1024, output_size: 20}
+        source: -3
+    - EarlyExitMultiheadDetection:
+        output: True
+        source: [-3, -2, -1]
+
     - RepNCSPELAN:
         args: {out_channels: 512, part_channels: 512}
         tags: P4
+        source: C5
 
     - ADown:
         args: {out_channels: 512}

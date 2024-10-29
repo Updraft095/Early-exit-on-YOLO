@@ -537,9 +537,11 @@ class EarlyExitSampler(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         size = x.size()[-1]
+        
 
         if size < self.output_size:
-            i = math.log2(self.output_size // size)
+            # print(self.output_size // size)
+            i = int(math.log2(self.output_size // size))
             for _ in range(i):
                 x = self.up_sampler(x)
         elif size > self.output_size:
