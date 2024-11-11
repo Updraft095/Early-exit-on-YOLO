@@ -1,17 +1,5 @@
 # Exploring YOLOv9 Optimization with Early Exit Mechanism
 
-[![Documentation Status](https://readthedocs.org/projects/yolo-docs/badge/?version=latest)](https://yolo-docs.readthedocs.io/en/latest/?badge=latest)
-![GitHub License](https://img.shields.io/github/license/WongKinYiu/YOLO)
-![WIP](https://img.shields.io/badge/status-WIP-orange)
-
-[![Developer Mode Build & Test](https://github.com/WongKinYiu/YOLO/actions/workflows/develop.yaml/badge.svg)](https://github.com/WongKinYiu/YOLO/actions/workflows/develop.yaml)
-[![Deploy Mode Validation & Inference](https://github.com/WongKinYiu/YOLO/actions/workflows/deploy.yaml/badge.svg)](https://github.com/WongKinYiu/YOLO/actions/workflows/deploy.yaml)
-
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/yolov9-learning-what-you-want-to-learn-using/real-time-object-detection-on-coco)](https://paperswithcode.com/sota/real-time-object-detection-on-coco)
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]()
-[![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-green)](https://huggingface.co/spaces/henry000/YOLO)
-
 <!-- > [!IMPORTANT]
 > This project is currently a Work In Progress and may undergo significant changes. It is not recommended for use in production environments until further notice. Please check back regularly for updates.
 >
@@ -107,7 +95,7 @@ To train YOLO with early exit mechanism on your machine/dataset:
 5. Run the training script:
 ```shell
 python yolo/lazy.py task=train model=v9_c dataset=coco weight=False 
-use_wandb=True task.data.batch_size=8 task.epoch=50 name=early
+use_wandb=False task.data.batch_size=8 task.epoch=50 name=early
 ```
 
 [//]: # (### Transfer Learning)
@@ -139,56 +127,4 @@ To validate model performance:
 ```shell
 python yolo/lazy.py task=validation weight=runs/train/early/weights/E049.pt 
 task.data.source=coco model.early_exit.specified_layer=4
-```
-
-## Contributing
-Contributions to the YOLO project are welcome! See [CONTRIBUTING](docs/CONTRIBUTING.md) for guidelines on how to contribute.
-
-### TODO Diagrams
-```mermaid
-flowchart TB
-    subgraph Features
-      Taskv7-->Segmentation["#35 Segmentation"]
-      Taskv7-->Classification["#34 Classification"]
-      Taskv9-->Segmentation
-      Taskv9-->Classification
-      Trainv7
-    end
-    subgraph Model
-      MODELv7-->v7-X
-      MODELv7-->v7-E6
-      MODELv7-->v7-E6E
-      MODELv9-->v9-T
-      MODELv9-->v9-S
-      MODELv9-->v9-E
-    end
-    subgraph Bugs
-      Fix-->Fix1["#12 mAP > 1"]
-      Fix-->Fix2["v9 Gradient Bump"]
-      Reply-->Reply1["#39"]
-      Reply-->Reply2["#36"]
-    end
-```
-
-## Star History
-[![Star History Chart](https://api.star-history.com/svg?repos=WongKinYiu/YOLO&type=Date)](https://star-history.com/#WongKinYiu/YOLO&Date)
-
-## Citations
-```
-@misc{wang2022yolov7,
-      title={YOLOv7: Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors},
-      author={Chien-Yao Wang and Alexey Bochkovskiy and Hong-Yuan Mark Liao},
-      year={2022},
-      eprint={2207.02696},
-      archivePrefix={arXiv},
-      primaryClass={id='cs.CV' full_name='Computer Vision and Pattern Recognition' is_active=True alt_name=None in_archive='cs' is_general=False description='Covers image processing, computer vision, pattern recognition, and scene understanding. Roughly includes material in ACM Subject Classes I.2.10, I.4, and I.5.'}
-}
-@misc{wang2024yolov9,
-      title={YOLOv9: Learning What You Want to Learn Using Programmable Gradient Information},
-      author={Chien-Yao Wang and I-Hau Yeh and Hong-Yuan Mark Liao},
-      year={2024},
-      eprint={2402.13616},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
-}
 ```
