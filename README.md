@@ -87,6 +87,8 @@ These are simple examples. In this project, we aim to optimize the YOLOv9 modelâ
 
 If you want to start your project quickly, please download a small COCO dataset and place it in your home directory before you start your project.
 (https://drive.google.com/file/d/1E6SsO_-HCjBxxHrI7Ce4SEYAar-W0LIl/view?usp=drive_link)
+![2791731308721_ pic](https://github.com/user-attachments/assets/5e0a979d-74ff-4627-bb39-28ec932e4a81)
+
 ## Training
 To train YOLO with early exit mechanism on your machine/dataset:
 
