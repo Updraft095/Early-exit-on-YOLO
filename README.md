@@ -125,6 +125,5 @@ task.data.source=/home/YOLO/demo/images/inference model.early_exit.specified_lay
 ### Validation
 To validate model performance:
 ```shell
-python yolo/lazy.py task=validation weight=runs/train/early/weights/E049.pt 
-task.data.source=coco model.early_exit.specified_layer=4
+python yolo/lazy.py task=validation weight=runs/train/early/weights/E049.pt dataset=coco model.early_exit.specified_layer=0
 ```
