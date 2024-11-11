@@ -85,6 +85,8 @@ To integrate an early exit mechanism into the model, follow these configuration 
 ## Task
 These are simple examples. In this project, we aim to optimize the YOLOv9 model’s inference speed and efficiency by integrating five early exit points into the model. These early exits allow the model to make predictions at various stages, reducing the need to process the entire network for simpler tasks and speeding up the inference process. Through this setup, we will evaluate and compare the model’s performance and efficiency across different exit points, providing insights into the trade-offs between accuracy and inference time.
 
+If you want to start your project quickly, please download a small COCO dataset and place it in your home directory before you start your project.
+(https://drive.google.com/file/d/1E6SsO_-HCjBxxHrI7Ce4SEYAar-W0LIl/view?usp=drive_link)
 ## Training
 To train YOLO with early exit mechanism on your machine/dataset:
 
